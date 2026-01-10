@@ -2,16 +2,15 @@
 <html lang="th">
 <head>
     <meta charset="utf-8">
-    <title>Transparent Charity Platform</title>
+    <title>Transparent Charity - Donor</title>
     <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
 </head>
 <body>
 
-<h2>แพลตฟอร์มระดมทุนเพื่อการกุศล (โปร่งใส)</h2>
+<h2>แพลตฟอร์มระดมทุนเพื่อการกุศล (Donor)</h2>
 
 <p>
-    สถานะ Network:
-    <strong id="network">-</strong>
+    Network: <strong id="network">-</strong>
 </p>
 
 <p>
@@ -27,7 +26,11 @@
 
 <hr>
 
-<button onclick="loadTotal()">โหลดข้อมูลล่าสุด</button>
+<h3>เมนูจัดการเงินบริจาค</h3>
+<p>※ ผู้บริจาคสามารถกดเข้าไปดูได้ แต่ใช้งานได้เฉพาะผู้มีสิทธิ์</p>
+
+<button onclick="goApprover()">🔐 ไปหน้าอนุมัติการเบิก (Approver)</button>
+<button onclick="goWithdrawer()">💸 ไปหน้าเบิกเงิน (Withdrawer)</button>
 
 <script>
 /* ================= CONFIG ================= */
@@ -35,7 +38,7 @@
 const SEPOLIA_CHAIN_ID = "0xaa36a7"; // 11155111
 const contractAddress = "0x8aeE86E718015094bBD2e40263B894965fe32699";
 
-/* ABI (สำคัญ) */
+/* ABI (เฉพาะที่ใช้ในหน้านี้) */
 const abi = [
     {
         "inputs": [],
@@ -47,7 +50,9 @@ const abi = [
     {
         "inputs": [],
         "name": "totalDonation",
-        "outputs": [{"internalType":"uint256","name":"","type":"uint256"}],
+        "outputs": [
+            { "internalType": "uint256", "name": "", "type": "uint256" }
+        ],
         "stateMutability": "view",
         "type": "function"
     }
@@ -58,7 +63,7 @@ const abi = [
 let web3;
 let contract;
 
-/* ============== NETWORK CHECK ============== */
+/* ============== NETWORK ================= */
 
 async function switchToSepolia() {
     const chainId = await ethereum.request({ method: "eth_chainId" });
@@ -96,16 +101,16 @@ async function connect() {
 
 async function donate() {
     const accounts = await web3.eth.getAccounts();
-    const ethAmount = document.getElementById("amount").value;
+    const eth = document.getElementById("amount").value;
 
-    if (!ethAmount || ethAmount <= 0) {
+    if (!eth || eth <= 0) {
         alert("กรุณาใส่จำนวน ETH");
         return;
     }
 
     await contract.methods.donate().send({
         from: accounts[0],
-        value: web3.utils.toWei(ethAmount, "ether")
+        value: web3.utils.toWei(eth, "ether")
     });
 
     alert("บริจาคสำเร็จ");
@@ -126,6 +131,16 @@ async function loadTotal() {
 
 function startAutoUpdate() {
     setInterval(loadTotal, 3000);
+}
+
+/* ============== NAVIGATION ================= */
+
+function goApprover() {
+    window.location.href = "approver.html";
+}
+
+function goWithdrawer() {
+    window.location.href = "withdrawer.html";
 }
 
 /* ============== START ================= */
