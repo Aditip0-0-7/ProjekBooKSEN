@@ -12,8 +12,23 @@
 
 <hr>
 
-<h3>อนุมัติการเบิกเงิน</h3>
-<input id="index" placeholder="ลำดับคำขอ">
+<h3>รายการคำขอเบิก</h3>
+<table border="1" cellpadding="5">
+<thead>
+<tr>
+    <th>Index</th>
+    <th>จำนวน (ETH)</th>
+    <th>วัตถุประสงค์</th>
+    <th>สถานะ</th>
+</tr>
+</thead>
+<tbody id="requests"></tbody>
+</table>
+
+<hr>
+
+<h3>อนุมัติคำขอ</h3>
+<input id="approveIndex" placeholder="Index">
 <button onclick="approve()">อนุมัติ</button>
 
 <script>
@@ -147,7 +162,7 @@ const abi = [
 		"stateMutability": "view",
 		"type": "function"
 	}
-]; // ABI เดิม
+]; // ABI เต็ม
 
 let web3, contract, user;
 
@@ -158,7 +173,6 @@ async function connect() {
     contract = new web3.eth.Contract(abi, contractAddress);
 
     const approver = await contract.methods.approver().call();
-
     if (user.toLowerCase() !== approver.toLowerCase()) {
         alert("คุณไม่ใช่ผู้อนุมัติ");
         document.body.innerHTML = "";
@@ -166,12 +180,38 @@ async function connect() {
     }
 
     document.getElementById("role").innerText = "ผู้อนุมัติ";
+    loadRequests();
+}
+
+async function loadRequests() {
+    const tbody = document.getElementById("requests");
+    tbody.innerHTML = "";
+
+    const count = await contract.methods.getWithdrawRequestCount().call();
+
+    for (let i = 0; i < count; i++) {
+        const r = await contract.methods.withdrawRequests(i).call();
+
+        let status = "⏳ รออนุมัติ";
+        if (r.approved) status = "✅ อนุมัติแล้ว";
+        if (r.withdrawn) status = "💸 ถอนแล้ว";
+
+        tbody.innerHTML += `
+            <tr>
+                <td>${i}</td>
+                <td>${web3.utils.fromWei(r.amount, "ether")}</td>
+                <td>${r.purpose}</td>
+                <td>${status}</td>
+            </tr>
+        `;
+    }
 }
 
 async function approve() {
-    const index = document.getElementById("index").value;
+    const index = document.getElementById("approveIndex").value;
     await contract.methods.approveWithdraw(index).send({ from: user });
     alert("อนุมัติเรียบร้อย");
+    loadRequests();
 }
 
 connect();
