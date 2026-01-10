@@ -24,14 +24,10 @@ let web3;
 let contract;
 
 const contractAddress = "0x8aeE86E718015094bBD2e40263B894965fe32699";
-const abi = [ [
+const abi = [
 	{
 		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "index",
-				"type": "uint256"
-			}
+			{ "internalType": "uint256", "name": "index", "type": "uint256" }
 		],
 		"name": "approveWithdraw",
 		"outputs": [],
@@ -47,16 +43,8 @@ const abi = [ [
 	},
 	{
 		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "_amount",
-				"type": "uint256"
-			},
-			{
-				"internalType": "string",
-				"name": "_purpose",
-				"type": "string"
-			}
+			{ "internalType": "uint256", "name": "_amount", "type": "uint256" },
+			{ "internalType": "string", "name": "_purpose", "type": "string" }
 		],
 		"name": "requestWithdraw",
 		"outputs": [],
@@ -64,24 +52,12 @@ const abi = [ [
 		"type": "function"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_withdrawer",
-				"type": "address"
-			}
-		],
+		"inputs": [{ "internalType": "address", "name": "_withdrawer", "type": "address" }],
 		"stateMutability": "nonpayable",
 		"type": "constructor"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "index",
-				"type": "uint256"
-			}
-		],
+		"inputs": [{ "internalType": "uint256", "name": "index", "type": "uint256" }],
 		"name": "withdraw",
 		"outputs": [],
 		"stateMutability": "nonpayable",
@@ -89,133 +65,13 @@ const abi = [ [
 	},
 	{
 		"inputs": [],
-		"name": "approver",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "donations",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "donor",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "time",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "getDonationCount",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "getWithdrawRequestCount",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
 		"name": "totalDonation",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "withdrawer",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "withdrawRequests",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			},
-			{
-				"internalType": "string",
-				"name": "purpose",
-				"type": "string"
-			},
-			{
-				"internalType": "bool",
-				"name": "approved",
-				"type": "bool"
-			},
-			{
-				"internalType": "bool",
-				"name": "withdrawn",
-				"type": "bool"
-			}
-		],
+		"outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
 		"stateMutability": "view",
 		"type": "function"
 	}
-] ];
+];
+
 
 async function connect() {
     if (window.ethereum) {
