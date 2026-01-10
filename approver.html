@@ -7,184 +7,80 @@
 </head>
 <body>
 
-<h2>หน้า ผู้อนุมัติ</h2>
-<p>บทบาท: <strong id="role">กำลังตรวจสอบ...</strong></p>
+<h2>🔐 หน้าอนุมัติการเบิก (Approver)</h2>
+
+<p id="role"></p>
 
 <hr>
 
-<h3>รายการคำขอเบิก</h3>
-<table border="1" cellpadding="5">
+<h3>📋 คำขอเบิกทั้งหมด</h3>
+
+<table border="1">
 <thead>
 <tr>
-    <th>Index</th>
-    <th>จำนวน (ETH)</th>
-    <th>วัตถุประสงค์</th>
-    <th>สถานะ</th>
+<th>Index</th>
+<th>Amount (ETH)</th>
+<th>Purpose</th>
+<th>Status</th>
+<th>Action</th>
 </tr>
 </thead>
-<tbody id="requests"></tbody>
+<tbody id="list"></tbody>
 </table>
 
-<hr>
-
-<h3>อนุมัติคำขอ</h3>
-<input id="approveIndex" placeholder="Index">
-<button onclick="approve()">อนุมัติ</button>
-
 <script>
-const contractAddress = "0x8aeE86E718015094bBD2e40263B894965fe32699";
-const abi = [
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_withdrawer",
-				"type": "address"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"inputs": [],
-		"name": "approver",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "donate",
-		"outputs": [],
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "donations",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "donor",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "time",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "index",
-				"type": "uint256"
-			}
-		],
-		"name": "getDonation",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "getDonationCount",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "totalDonation",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "withdrawer",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	}
-]; // ABI เต็ม
+/* ================= CONFIG ================= */
 
-let web3, contract, user;
+const contractAddress = "0x8aeE86E718015094bBD2e40263B894965fe32699";
+
+const abi = [
+    {"inputs":[{"internalType":"uint256","name":"index","type":"uint256"}],"name":"approveWithdraw","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[],"name":"approver","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+    {"inputs":[],"name":"getWithdrawRequestCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+    {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"withdrawRequests","outputs":[
+        {"internalType":"uint256","name":"amount","type":"uint256"},
+        {"internalType":"string","name":"purpose","type":"string"},
+        {"internalType":"bool","name":"approved","type":"bool"},
+        {"internalType":"bool","name":"withdrawn","type":"bool"}
+    ],"stateMutability":"view","type":"function"}
+];
+
+/* ================= GLOBAL ================= */
+
+let web3, contract, account;
+
+/* ================= CONNECT ================= */
 
 async function connect() {
-    web3 = new Web3(window.ethereum);
-    await ethereum.request({ method: "eth_requestAccounts" });
-    user = (await web3.eth.getAccounts())[0];
-    contract = new web3.eth.Contract(abi, contractAddress);
-
-    const approver = await contract.methods.approver().call();
-    if (user.toLowerCase() !== approver.toLowerCase()) {
-        alert("คุณไม่ใช่ผู้อนุมัติ");
-        document.body.innerHTML = "";
+    if (!window.ethereum) {
+        alert("กรุณาติดตั้ง MetaMask");
         return;
     }
 
-    document.getElementById("role").innerText = "ผู้อนุมัติ";
+    web3 = new Web3(window.ethereum);
+    const accs = await ethereum.request({ method: "eth_requestAccounts" });
+    account = accs[0];
+
+    contract = new web3.eth.Contract(abi, contractAddress);
+
+    const approverAddress = await contract.methods.approver().call();
+
+    if (account.toLowerCase() !== approverAddress.toLowerCase()) {
+        document.getElementById("role").innerHTML =
+            "❌ Wallet นี้ไม่ใช่ผู้อนุมัติ";
+        return;
+    }
+
+    document.getElementById("role").innerHTML =
+        "✅ Wallet นี้คือผู้อนุมัติ";
+
     loadRequests();
 }
 
+/* ================= LOAD REQUESTS ================= */
+
 async function loadRequests() {
-    const tbody = document.getElementById("requests");
+    const tbody = document.getElementById("list");
     tbody.innerHTML = "";
 
     const count = await contract.methods.getWithdrawRequestCount().call();
@@ -193,26 +89,41 @@ async function loadRequests() {
         const r = await contract.methods.withdrawRequests(i).call();
 
         let status = "⏳ รออนุมัติ";
-        if (r.approved) status = "✅ อนุมัติแล้ว";
-        if (r.withdrawn) status = "💸 ถอนแล้ว";
+        let action = "-";
+
+        if (r.approved && !r.withdrawn) {
+            status = "✅ อนุมัติแล้ว";
+        }
+
+        if (!r.approved) {
+            action = `<button onclick="approve(${i})">อนุมัติ</button>`;
+        }
+
+        if (r.withdrawn) {
+            status = "💸 ถอนแล้ว";
+            action = "-";
+        }
 
         tbody.innerHTML += `
-            <tr>
-                <td>${i}</td>
-                <td>${web3.utils.fromWei(r.amount, "ether")}</td>
-                <td>${r.purpose}</td>
-                <td>${status}</td>
-            </tr>
-        `;
+        <tr>
+            <td>${i}</td>
+            <td>${web3.utils.fromWei(r.amount,"ether")}</td>
+            <td>${r.purpose}</td>
+            <td>${status}</td>
+            <td>${action}</td>
+        </tr>`;
     }
 }
 
-async function approve() {
-    const index = document.getElementById("approveIndex").value;
-    await contract.methods.approveWithdraw(index).send({ from: user });
-    alert("อนุมัติเรียบร้อย");
+/* ================= APPROVE ================= */
+
+async function approve(index) {
+    await contract.methods.approveWithdraw(index).send({ from: account });
+    alert("อนุมัติสำเร็จ");
     loadRequests();
 }
+
+/* ================= START ================= */
 
 connect();
 </script>
