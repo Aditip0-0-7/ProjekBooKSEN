@@ -9,9 +9,7 @@
 
 <h2>แพลตฟอร์มระดมทุนเพื่อการกุศล (Donor)</h2>
 
-<p>
-    Network: <strong id="network">-</strong>
-</p>
+<p>Network: <strong id="network">-</strong></p>
 
 <p>
     ยอดเงินบริจาครวม:
@@ -20,17 +18,22 @@
 
 <hr>
 
-<h3>บริจาคเงิน</h3>
+<h3>💚 บริจาคเงิน</h3>
 <input type="number" id="amount" placeholder="จำนวน ETH" step="0.001">
 <button onclick="donate()">บริจาค</button>
 
 <hr>
 
-<h3>เมนูจัดการเงินบริจาค</h3>
-<p>※ ผู้บริจาคสามารถกดเข้าไปดูได้ แต่ใช้งานได้เฉพาะผู้มีสิทธิ์</p>
+<h3>🔍 ตรวจสอบเส้นทางการเงิน (Transparency)</h3>
+<button onclick="loadTimeline()">ดูเส้นทางการเงิน</button>
 
-<button onclick="goApprover()">🔐 ไปหน้าอนุมัติการเบิก (Approver)</button>
-<button onclick="goWithdrawer()">💸 ไปหน้าเบิกเงิน (Withdrawer)</button>
+<ul id="timeline"></ul>
+
+<hr>
+
+<h3>เมนูจัดการ (เฉพาะผู้มีสิทธิ์)</h3>
+<button onclick="goApprover()">🔐 หน้าอนุมัติ (Approver)</button>
+<button onclick="goWithdrawer()">💸 หน้าเบิกเงิน (Withdrawer)</button>
 
 <script>
 /* ================= CONFIG ================= */
@@ -38,7 +41,7 @@
 const SEPOLIA_CHAIN_ID = "0xaa36a7"; // 11155111
 const contractAddress = "0x8aeE86E718015094bBD2e40263B894965fe32699";
 
-/* ABI (เฉพาะที่ใช้ในหน้านี้) */
+/* ABI */
 const abi = [
     {
         "inputs": [],
@@ -55,30 +58,63 @@ const abi = [
         ],
         "stateMutability": "view",
         "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            { "indexed": true, "internalType": "address", "name": "donor", "type": "address" },
+            { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+        ],
+        "name": "DonationReceived",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            { "indexed": false, "internalType": "uint256", "name": "index", "type": "uint256" },
+            { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" },
+            { "indexed": false, "internalType": "string", "name": "purpose", "type": "string" }
+        ],
+        "name": "WithdrawRequested",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            { "indexed": false, "internalType": "uint256", "name": "index", "type": "uint256" }
+        ],
+        "name": "WithdrawApproved",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            { "indexed": false, "internalType": "uint256", "name": "index", "type": "uint256" }
+        ],
+        "name": "WithdrawExecuted",
+        "type": "event"
     }
 ];
 
-/* ============== GLOBAL VARS ============== */
+/* ============== GLOBAL ============== */
 
 let web3;
 let contract;
 
-/* ============== NETWORK ================= */
+/* ============== NETWORK ============== */
 
 async function switchToSepolia() {
     const chainId = await ethereum.request({ method: "eth_chainId" });
-
     if (chainId !== SEPOLIA_CHAIN_ID) {
         await ethereum.request({
             method: "wallet_switchEthereumChain",
             params: [{ chainId: SEPOLIA_CHAIN_ID }]
         });
     }
-
     document.getElementById("network").innerText = "Sepolia";
 }
 
-/* ============== CONNECT ================= */
+/* ============== CONNECT ============== */
 
 async function connect() {
     if (!window.ethereum) {
@@ -94,10 +130,10 @@ async function connect() {
     contract = new web3.eth.Contract(abi, contractAddress);
 
     loadTotal();
-    startAutoUpdate();
+    setInterval(loadTotal, 3000);
 }
 
-/* ============== DONATE ================= */
+/* ============== DONATE ============== */
 
 async function donate() {
     const accounts = await web3.eth.getAccounts();
@@ -117,23 +153,65 @@ async function donate() {
     loadTotal();
 }
 
-/* ============== LOAD TOTAL ================= */
+/* ============== TOTAL ============== */
 
 async function loadTotal() {
-    if (!contract) return;
-
     const totalWei = await contract.methods.totalDonation().call();
     document.getElementById("total").innerText =
         web3.utils.fromWei(totalWei, "ether");
 }
 
-/* ============== AUTO UPDATE ================= */
+/* ============== TIMELINE ============== */
 
-function startAutoUpdate() {
-    setInterval(loadTotal, 3000);
+async function loadTimeline() {
+    const list = document.getElementById("timeline");
+    list.innerHTML = "";
+
+    const donations = await contract.getPastEvents("DonationReceived", {
+        fromBlock: 0,
+        toBlock: "latest"
+    });
+
+    const requests = await contract.getPastEvents("WithdrawRequested", {
+        fromBlock: 0,
+        toBlock: "latest"
+    });
+
+    const approvals = await contract.getPastEvents("WithdrawApproved", {
+        fromBlock: 0,
+        toBlock: "latest"
+    });
+
+    const withdrawals = await contract.getPastEvents("WithdrawExecuted", {
+        fromBlock: 0,
+        toBlock: "latest"
+    });
+
+    donations.forEach(e => {
+        list.innerHTML += `
+        <li>💚 บริจาค ${web3.utils.fromWei(e.returnValues.amount,"ether")} ETH
+        จาก ${e.returnValues.donor}</li>`;
+    });
+
+    requests.forEach(e => {
+        list.innerHTML += `
+        <li>📝 ขอเบิก (Index ${e.returnValues.index})
+        | ${web3.utils.fromWei(e.returnValues.amount,"ether")} ETH
+        | ${e.returnValues.purpose}</li>`;
+    });
+
+    approvals.forEach(e => {
+        list.innerHTML += `
+        <li>✅ อนุมัติคำขอ Index ${e.returnValues.index}</li>`;
+    });
+
+    withdrawals.forEach(e => {
+        list.innerHTML += `
+        <li>💸 ถอนเงินสำเร็จ Index ${e.returnValues.index}</li>`;
+    });
 }
 
-/* ============== NAVIGATION ================= */
+/* ============== NAV ============== */
 
 function goApprover() {
     window.location.href = "approver.html";
@@ -143,7 +221,7 @@ function goWithdrawer() {
     window.location.href = "withdrawer.html";
 }
 
-/* ============== START ================= */
+/* ============== START ============== */
 
 connect();
 </script>
