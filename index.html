@@ -1,104 +1,128 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
 <head>
     <meta charset="utf-8">
-    <title>Transparent Charity</title>
+    <title>Transparent Charity Platform</title>
+
+    <!-- Web3 -->
     <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        input, button {
+            padding: 6px;
+            margin: 4px;
+        }
+    </style>
 </head>
+
 <body>
 
-<h2>แพลตฟอร์มระดมทุนเพื่อการกุศล</h2>
+<h2>แพลตฟอร์มระดมทุนเพื่อการกุศล (โปร่งใส)</h2>
 
-<p>ยอดเงินบริจาครวม: <span id="total">0</span> ETH</p>
+<p>
+    💰 ยอดเงินบริจาครวม:
+    <strong><span id="total">0</span> ETH</strong>
+</p>
 
-<input type="number" id="amount" placeholder="จำนวน ETH">
+<input type="number" id="amount" placeholder="จำนวน ETH" step="0.001">
 <button onclick="donate()">บริจาค</button>
 
 <hr>
 
-<h3>ตรวจสอบเส้นทางเงิน</h3>
-<button onclick="load()">โหลดข้อมูล</button>
+<button onclick="loadTotal()">โหลดข้อมูลล่าสุด</button>
+
+<p id="status"></p>
 
 <script>
+/* ================== CONFIG ================== */
+const contractAddress = "0x8aee86e718015094bbd2e40263b894965fe32699";
+
+const abi = [
+  {
+    "inputs": [],
+    "name": "donate",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalDonation",
+    "outputs": [
+      { "internalType": "uint256", "name": "", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+/* ============================================ */
+
 let web3;
 let contract;
 
-const contractAddress = "0x8aeE86E718015094bBD2e40263B894965fe32699";
-const abi = [
-	{
-		"inputs": [
-			{ "internalType": "uint256", "name": "index", "type": "uint256" }
-		],
-		"name": "approveWithdraw",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "donate",
-		"outputs": [],
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{ "internalType": "uint256", "name": "_amount", "type": "uint256" },
-			{ "internalType": "string", "name": "_purpose", "type": "string" }
-		],
-		"name": "requestWithdraw",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [{ "internalType": "address", "name": "_withdrawer", "type": "address" }],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"inputs": [{ "internalType": "uint256", "name": "index", "type": "uint256" }],
-		"name": "withdraw",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "totalDonation",
-		"outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
-		"stateMutability": "view",
-		"type": "function"
-	}
-];
-
-
+/* 🔌 เชื่อมต่อ MetaMask */
 async function connect() {
-    if (window.ethereum) {
-        web3 = new Web3(window.ethereum);
-        await ethereum.request({ method: 'eth_requestAccounts' });
-        contract = new web3.eth.Contract(abi, contractAddress);
+    if (!window.ethereum) {
+        alert("กรุณาติดตั้ง MetaMask");
+        return;
+    }
+
+    web3 = new Web3(window.ethereum);
+    await ethereum.request({ method: "eth_requestAccounts" });
+
+    contract = new web3.eth.Contract(abi, contractAddress);
+
+    document.getElementById("status").innerText = "✅ เชื่อมต่อ MetaMask แล้ว";
+
+    loadTotal();
+    startAutoUpdate();
+}
+
+/* 💸 บริจาค */
+async function donate() {
+    try {
+        const accounts = await web3.eth.getAccounts();
+        const ethAmount = document.getElementById("amount").value;
+
+        if (ethAmount <= 0) {
+            alert("กรุณากรอกจำนวน ETH");
+            return;
+        }
+
+        await contract.methods.donate().send({
+            from: accounts[0],
+            value: web3.utils.toWei(ethAmount, "ether")
+        });
+
+        alert("🎉 บริจาคสำเร็จ");
+        document.getElementById("amount").value = "";
+        loadTotal();
+
+    } catch (err) {
+        console.error(err);
+        alert("❌ การทำรายการถูกยกเลิก");
     }
 }
 
-async function donate() {
-    const accounts = await web3.eth.getAccounts();
-    const eth = document.getElementById("amount").value;
+/* 📊 โหลดยอดเงินรวม */
+async function loadTotal() {
+    if (!contract) return;
 
-    await contract.methods.donate().send({
-        from: accounts[0],
-        value: web3.utils.toWei(eth, "ether")
-    });
-
-    alert("บริจาคสำเร็จ");
-}
-
-async function load() {
     const total = await contract.methods.totalDonation().call();
     document.getElementById("total").innerText =
         web3.utils.fromWei(total, "ether");
 }
 
+/* 🔄 อัปเดตอัตโนมัติทุก 3 วินาที */
+function startAutoUpdate() {
+    setInterval(loadTotal, 3000);
+}
+
+/* เริ่มทำงาน */
 connect();
 </script>
 
