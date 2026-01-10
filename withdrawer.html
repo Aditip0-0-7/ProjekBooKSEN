@@ -7,186 +7,51 @@
 </head>
 <body>
 
-<h2>หน้า ผู้เบิกเงิน</h2>
-<p>บทบาท: <strong id="role">กำลังตรวจสอบ...</strong></p>
-
-<hr>
+<h2>💸 หน้าเบิกเงิน (Withdrawer)</h2>
 
 <h3>ขอเบิกเงิน</h3>
-<input id="amount" placeholder="จำนวน ETH">
-<input id="purpose" placeholder="วัตถุประสงค์">
+<input id="amount" type="number" step="0.01" placeholder="จำนวน ETH">
+<input id="purpose" type="text" placeholder="วัตถุประสงค์">
 <button onclick="requestWithdraw()">ขอเบิก</button>
 
 <hr>
 
-<h3>รายการคำขอเบิก (ของผู้เบิก)</h3>
-<table border="1" cellpadding="5">
+<h3>📋 คำขอเบิกของคุณ</h3>
+<table border="1">
 <thead>
 <tr>
-    <th>Index</th>
-    <th>จำนวน (ETH)</th>
-    <th>วัตถุประสงค์</th>
-    <th>สถานะ</th>
+<th>Index</th>
+<th>Amount (ETH)</th>
+<th>Purpose</th>
+<th>Status</th>
+<th>Action</th>
 </tr>
 </thead>
-<tbody id="requests"></tbody>
+<tbody id="list"></tbody>
 </table>
-
-<hr>
-
-<h3>ถอนเงิน (หลังอนุมัติ)</h3>
-<input id="withdrawIndex" placeholder="Index">
-<button onclick="withdraw()">ถอนเงิน</button>
 
 <script>
 const contractAddress = "0x8aeE86E718015094bBD2e40263B894965fe32699";
-const abi = [
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_withdrawer",
-				"type": "address"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"inputs": [],
-		"name": "approver",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "donate",
-		"outputs": [],
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "donations",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "donor",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "time",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "index",
-				"type": "uint256"
-			}
-		],
-		"name": "getDonation",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "getDonationCount",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "totalDonation",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "withdrawer",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	}
-]; // ใช้ ABI เต็มของคุณ
 
-let web3, contract, user;
+const abi = [
+    {"inputs":[{"internalType":"uint256","name":"_amount","type":"uint256"},{"internalType":"string","name":"_purpose","type":"string"}],"name":"requestWithdraw","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[{"internalType":"uint256","name":"index","type":"uint256"}],"name":"withdraw","outputs":[],"stateMutability":"nonpayable","type":"function"},
+    {"inputs":[],"name":"getWithdrawRequestCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+    {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"withdrawRequests","outputs":[
+        {"internalType":"uint256","name":"amount","type":"uint256"},
+        {"internalType":"string","name":"purpose","type":"string"},
+        {"internalType":"bool","name":"approved","type":"bool"},
+        {"internalType":"bool","name":"withdrawn","type":"bool"}
+    ],"stateMutability":"view","type":"function"}
+];
+
+let web3, contract, account;
 
 async function connect() {
     web3 = new Web3(window.ethereum);
-    await ethereum.request({ method: "eth_requestAccounts" });
-    user = (await web3.eth.getAccounts())[0];
+    const accs = await ethereum.request({ method: "eth_requestAccounts" });
+    account = accs[0];
     contract = new web3.eth.Contract(abi, contractAddress);
-
-    const withdrawer = await contract.methods.withdrawer().call();
-    if (user.toLowerCase() !== withdrawer.toLowerCase()) {
-        alert("คุณไม่ใช่ผู้เบิก");
-        document.body.innerHTML = "";
-        return;
-    }
-
-    document.getElementById("role").innerText = "ผู้เบิกเงิน";
     loadRequests();
 }
 
@@ -197,14 +62,20 @@ async function requestWithdraw() {
     await contract.methods.requestWithdraw(
         web3.utils.toWei(eth, "ether"),
         purpose
-    ).send({ from: user });
+    ).send({ from: account });
 
-    alert("ส่งคำขอเบิกแล้ว");
+    alert("ส่งคำขอแล้ว");
+    loadRequests();
+}
+
+async function withdraw(index) {
+    await contract.methods.withdraw(index).send({ from: account });
+    alert("ถอนเงินสำเร็จ");
     loadRequests();
 }
 
 async function loadRequests() {
-    const tbody = document.getElementById("requests");
+    const tbody = document.getElementById("list");
     tbody.innerHTML = "";
 
     const count = await contract.methods.getWithdrawRequestCount().call();
@@ -213,25 +84,26 @@ async function loadRequests() {
         const r = await contract.methods.withdrawRequests(i).call();
 
         let status = "⏳ รออนุมัติ";
-        if (r.approved) status = "✅ อนุมัติแล้ว";
-        if (r.withdrawn) status = "💸 ถอนแล้ว";
+        let action = "-";
+
+        if (r.approved && !r.withdrawn) {
+            status = "✅ อนุมัติแล้ว";
+            action = `<button onclick="withdraw(${i})">ถอน</button>`;
+        }
+
+        if (r.withdrawn) {
+            status = "💸 ถอนแล้ว";
+        }
 
         tbody.innerHTML += `
-            <tr>
-                <td>${i}</td>
-                <td>${web3.utils.fromWei(r.amount, "ether")}</td>
-                <td>${r.purpose}</td>
-                <td>${status}</td>
-            </tr>
-        `;
+        <tr>
+            <td>${i}</td>
+            <td>${web3.utils.fromWei(r.amount,"ether")}</td>
+            <td>${r.purpose}</td>
+            <td>${status}</td>
+            <td>${action}</td>
+        </tr>`;
     }
-}
-
-async function withdraw() {
-    const index = document.getElementById("withdrawIndex").value;
-    await contract.methods.withdraw(index).send({ from: user });
-    alert("ถอนเงินสำเร็จ");
-    loadRequests();
 }
 
 connect();
