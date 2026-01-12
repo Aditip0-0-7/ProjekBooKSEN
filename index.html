@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Transparent Charity - Donor</title>
+<script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+</head>
+<body>
+
+<h2>แพลตฟอร์มระดมทุนเพื่อการกุศล (Donor)</h2>
+
+<p>Network: <strong id="network">-</strong></p>
+
+<p>
+ยอดเงินคงเหลือในสัญญา:
+<strong id="total">0</strong> ETH
+</p>
+
+<hr>
+
+<h3>💚 บริจาคเงิน</h3>
+<input type="number" id="amount" placeholder="จำนวน ETH" step="0.001">
+<button onclick="donate()">บริจาค</button>
+
+<hr>
+
+<h3>🔍 ความโปร่งใส (คำขอเบิกทั้งหมด)</h3>
+<button onclick="loadRequests()">โหลดข้อมูล</button>
+
+<table border="1" cellpadding="6">
+<thead>
+<tr>
+<th>#</th>
+<th>Amount (ETH)</th>
+<th>Purpose</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody id="list"></tbody>
+</table>
+
+<hr>
+
+<h3>เมนูจัดการ</h3>
+<button onclick="goApprover()">🔐 หน้าอนุมัติ</button>
+<button onclick="goWithdrawer()">💸 หน้าเบิกเงิน</button>
+
+<script>
+/* ===== CONFIG ===== */
+const SEPOLIA_CHAIN_ID = "0xaa36a7";
+const contractAddress = "0x91991Be7C7D961Fb24583f7DB50013aE7E56c9F9";
+
+/* ===== ABI ===== */
+const abi = [
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "index",
+				"type": "uint256"
+			}
+		],
+		"name": "approveWithdraw",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "donate",
+		"outputs": [],
+		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "string",
+				"name": "purpose",
+				"type": "string"
+			}
+		],
+		"name": "requestWithdraw",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_withdrawer",
+				"type": "address"
+			}
+		],
+		"stateMutability": "nonpayable",
+		"type": "constructor"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "index",
+				"type": "uint256"
+			}
+		],
+		"name": "withdraw",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "approver",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getWithdrawRequestCount",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "withdrawer",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "withdrawRequests",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "amount",
+				"type": "uint256"
+			},
+			{
+				"internalType": "string",
+				"name": "purpose",
+				"type": "string"
+			},
+			{
+				"internalType": "bool",
+				"name": "approved",
+				"type": "bool"
+			},
+			{
+				"internalType": "bool",
+				"name": "withdrawn",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+];
+
+let web3, contract;
+
+/* ===== CONNECT ===== */
+async function connect() {
+  if (!window.ethereum) {
+    alert("กรุณาติดตั้ง MetaMask");
+    return;
+  }
+
+  const chainId = await ethereum.request({ method: "eth_chainId" });
+  if (chainId !== SEPOLIA_CHAIN_ID) {
+    await ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: SEPOLIA_CHAIN_ID }]
+    });
+  }
+
+  web3 = new Web3(window.ethereum);
+  await ethereum.request({ method: "eth_requestAccounts" });
+
+  contract = new web3.eth.Contract(abi, contractAddress);
+  document.getElementById("network").innerText = "Sepolia";
+
+  loadTotal();
+}
+
+/* ===== TOTAL BALANCE ===== */
+async function loadTotal() {
+  const balanceWei = await web3.eth.getBalance(contractAddress);
+  document.getElementById("total").innerText =
+    web3.utils.fromWei(balanceWei, "ether");
+}
+
+/* ===== DONATE ===== */
+async function donate() {
+  const eth = document.getElementById("amount").value;
+  if (!eth || eth <= 0) {
+    alert("กรุณาใส่จำนวน ETH");
+    return;
+  }
+
+  const acc = (await web3.eth.getAccounts())[0];
+
+  await contract.methods.donate().send({
+    from: acc,
+    value: web3.utils.toWei(eth,"ether")
+  });
+
+  alert("บริจาคสำเร็จ");
+  loadTotal();
+}
+
+/* ===== LOAD WITHDRAW REQUESTS ===== */
+async function loadRequests() {
+  const tbody = document.getElementById("list");
+  tbody.innerHTML = "";
+
+  const count = await contract.methods.getWithdrawRequestCount().call();
+
+  if (count == 0) {
+    tbody.innerHTML = `<tr><td colspan="4">ยังไม่มีคำขอเบิก</td></tr>`;
+    return;
+  }
+
+  for (let i = 0; i < count; i++) {
+    const r = await contract.methods.withdrawRequests(i).call();
+
+    let status = "⏳ รออนุมัติ";
+    if (r.approved && !r.withdrawn) status = "✅ อนุมัติแล้ว";
+    if (r.withdrawn) status = "💸 ถอนแล้ว";
+
+    tbody.innerHTML += `
+      <tr>
+        <td>${i}</td>
+        <td>${web3.utils.fromWei(r.amount,"ether")}</td>
+        <td>${r.purpose}</td>
+        <td>${status}</td>
+      </tr>
+    `;
+  }
+}
+
+/* ===== NAV ===== */
+function goApprover(){ location.href="approver.html"; }
+function goWithdrawer(){ location.href="withdrawer.html"; }
+
+/* ===== START ===== */
+connect();
+</script>
+
+</body>
+</html>
