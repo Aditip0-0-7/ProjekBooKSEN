@@ -7,233 +7,86 @@
 </head>
 <body>
 
-<h2>หน้า ผู้เบิกเงิน</h2>
-<p>บทบาท: <strong id="role">กำลังตรวจสอบ...</strong></p>
+<h2>💸 หน้าเบิกเงิน (Withdrawer)</h2>
 
-<h3>ขอเบิกเงิน</h3>
-<input id="amount" type="number" step="0.01" placeholder="ETH">
-<input id="purpose" placeholder="วัตถุประสงค์">
-<button onclick="request()">ขอเบิก</button>
+<p>Network: <strong id="network">-</strong></p>
 
 <hr>
 
-<table border="1">
-<thead>
-<tr>
-<th>#</th>
-<th>Amount (ETH)</th>
-<th>Purpose</th>
-<th>Status</th>
-<th>Action</th>
-</tr>
-</thead>
-<tbody id="list"></tbody>
-</table>
+<h3>📤 ขอเบิกเงิน</h3>
+<input type="number" id="amount" placeholder="จำนวน ETH" step="0.001">
+<br><br>
+<input type="text" id="purpose" placeholder="วัตถุประสงค์">
+<br><br>
+<button onclick="requestWithdraw()">ขอเบิก</button>
+
+<hr>
+
+<h3>💰 เบิกเงิน (หลังอนุมัติ)</h3>
+<input type="number" id="index" placeholder="Request Index">
+<button onclick="withdraw()">ถอนเงิน</button>
 
 <script>
+const SEPOLIA_CHAIN_ID = "0xaa36a7";
 const contractAddress = "0xdec37e195147ffd473b5c3d062a590032e5f8e33";
+
 const abi = [
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "index",
-				"type": "uint256"
-			}
-		],
-		"name": "approveWithdraw",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "donate",
-		"outputs": [],
-		"stateMutability": "payable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			},
-			{
-				"internalType": "string",
-				"name": "purpose",
-				"type": "string"
-			}
-		],
-		"name": "requestWithdraw",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_withdrawer",
-				"type": "address"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "index",
-				"type": "uint256"
-			}
-		],
-		"name": "withdraw",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "approver",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "getWithdrawRequestCount",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "withdrawer",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "withdrawRequests",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "amount",
-				"type": "uint256"
-			},
-			{
-				"internalType": "string",
-				"name": "purpose",
-				"type": "string"
-			},
-			{
-				"internalType": "bool",
-				"name": "approved",
-				"type": "bool"
-			},
-			{
-				"internalType": "bool",
-				"name": "withdrawn",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	}
+  {
+    "inputs":[
+      {"internalType":"uint256","name":"amount","type":"uint256"},
+      {"internalType":"string","name":"purpose","type":"string"}
+    ],
+    "name":"requestWithdraw","outputs":[],"stateMutability":"nonpayable","type":"function"
+  },
+  {
+    "inputs":[{"internalType":"uint256","name":"index","type":"uint256"}],
+    "name":"withdraw","outputs":[],"stateMutability":"nonpayable","type":"function"
+  }
 ];
 
-let web3, contract, user;
+let web3, contract, account;
 
 async function connect() {
+  await ethereum.request({
+    method: "wallet_switchEthereumChain",
+    params: [{ chainId: SEPOLIA_CHAIN_ID }]
+  });
+
   web3 = new Web3(window.ethereum);
-  const accs = await ethereum.request({ method: "eth_requestAccounts" });
-  user = accs[0];
+  await ethereum.request({ method: "eth_requestAccounts" });
+  account = (await web3.eth.getAccounts())[0];
 
   contract = new web3.eth.Contract(abi, contractAddress);
-
-  const withdrawer = await contract.methods.withdrawer().call();
-  if (user.toLowerCase() !== withdrawer.toLowerCase()) {
-    alert("คุณไม่ใช่ผู้เบิก");
-    document.body.innerHTML = "";
-    return;
-  }
-
-  document.getElementById("role").innerText = "ผู้เบิกเงิน";
-  load();
+  document.getElementById("network").innerText = "Sepolia";
 }
 
-async function request() {
+async function requestWithdraw() {
   const eth = document.getElementById("amount").value;
   const purpose = document.getElementById("purpose").value;
 
-  await contract.methods.requestWithdraw(
-    web3.utils.toWei(eth,"ether"),
-    purpose
-  ).send({ from: user });
-
-  load();
-}
-
-async function withdraw(i) {
-  await contract.methods.withdraw(i).send({ from: user });
-  load();
-}
-
-async function load() {
-  const tbody = document.getElementById("list");
-  tbody.innerHTML = "";
-
-  const count = await contract.methods.getWithdrawRequestCount().call();
-
-  for (let i = 0; i < count; i++) {
-    const r = await contract.methods.withdrawRequests(i).call();
-
-    let status = "⏳ รออนุมัติ";
-    let btn = "-";
-
-    if (r.approved && !r.withdrawn) {
-      status = "✅ อนุมัติแล้ว";
-      btn = `<button onclick="withdraw(${i})">ถอน</button>`;
-    }
-    if (r.withdrawn) status = "💸 ถอนแล้ว";
-
-    tbody.innerHTML += `
-      <tr>
-        <td>${i}</td>
-        <td>${web3.utils.fromWei(r.amount,"ether")}</td>
-        <td>${r.purpose}</td>
-        <td>${status}</td>
-        <td>${btn}</td>
-      </tr>`;
+  if (eth <= 0) {
+    alert("จำนวน ETH ต้องมากกว่า 0");
+    return;
   }
+
+  // ⭐ แปลง ETH → wei (สำคัญมาก)
+  const weiAmount = web3.utils.toWei(eth, "ether");
+
+  await contract.methods.requestWithdraw(weiAmount, purpose).send({
+    from: account
+  });
+
+  alert("ส่งคำขอเบิกสำเร็จ");
+}
+
+async function withdraw() {
+  const index = document.getElementById("index").value;
+
+  await contract.methods.withdraw(index).send({
+    from: account
+  });
+
+  alert("ถอนเงินสำเร็จ");
 }
 
 connect();
